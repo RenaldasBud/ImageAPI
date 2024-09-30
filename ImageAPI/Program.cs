@@ -1,4 +1,4 @@
-using SvgApi.Handlers;
+using ImageAPI.Handlers;
 
 namespace UserRegistration.API
 {
@@ -8,16 +8,19 @@ namespace UserRegistration.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
+            // Register services
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            // Register WebSocketHandler and its dependencies
+            builder.Services.AddSingleton<BroadcastService>();
+            builder.Services.AddSingleton<SvgService>();
+            builder.Services.AddSingleton<MessageProcessor>();
+            builder.Services.AddSingleton<WebSocketHandler>();
+
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -25,14 +28,13 @@ namespace UserRegistration.API
             }
 
             app.UseHttpsRedirection();
-
             app.UseAuthorization();
             app.UseCors(builder =>
                         builder
                         .AllowAnyOrigin()
                         .AllowAnyMethod()
-                        .AllowAnyHeader()
-                        );
+                        .AllowAnyHeader());
+
             app.MapControllers();
             app.UseWebSockets();
 
@@ -43,7 +45,9 @@ namespace UserRegistration.API
                     if (context.WebSockets.IsWebSocketRequest)
                     {
                         var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                        await WebSocketHandler.HandleWebSocketAsync(webSocket, context.RequestAborted);
+
+                        var webSocketHandler = context.RequestServices.GetRequiredService<WebSocketHandler>();
+                        await webSocketHandler.HandleWebSocketAsync(webSocket, context.RequestAborted);
                     }
                     else
                     {
@@ -55,6 +59,7 @@ namespace UserRegistration.API
                     await next();
                 }
             });
+
             app.Run();
         }
     }

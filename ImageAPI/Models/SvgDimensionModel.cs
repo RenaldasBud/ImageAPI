@@ -1,21 +1,16 @@
-﻿using System.Collections.Generic;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace SvgApi.Models
+namespace ImageAPI.Models
 {
     public class SvgDimensionModel
     {
-        // Use PascalCase for public properties
         [JsonPropertyName("ListId")]
-        public int ListId { get; set; }  // Public property for serialization
+        public int ListId { get; set; }
 
         [JsonPropertyName("VersionId")]
-        public double VersionId { get; set; } // Public property for serialization
-
+        public double VersionId { get; set; }
         public int Width { get; set; }
         public int Height { get; set; }
-
-        // Versions should remain the same
         public List<SvgVersion> Versions { get; set; } = new List<SvgVersion>();
     }
 
@@ -26,8 +21,10 @@ namespace SvgApi.Models
         public int Height { get; set; }
     }
 
-    public class SvgRoot
+    public class Svg
     {
         public List<SvgDimensionModel> SvgDimensions { get; set; } = new List<SvgDimensionModel>();
     }
 }
+
+

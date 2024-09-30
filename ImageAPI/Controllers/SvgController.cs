@@ -1,10 +1,11 @@
-﻿
+﻿using ImageAPI.DTOs.Requests;
+using ImageAPI.Models;
+
 using Microsoft.AspNetCore.Mvc;
 
 using Newtonsoft.Json;
 
-using System.Collections.Generic;
-using System.Linq;
+using Version = ImageAPI.Models.Version;
 
 namespace ImageAPI.Controllers
 {
@@ -12,52 +13,60 @@ namespace ImageAPI.Controllers
     [ApiController]
     public class SvgController : ControllerBase
     {
-        private const string JsonFilePath = "DB/svgDimensions.json"; // Adjust the path as needed
+        private const string JsonFilePath = "DB/svgDimensions.json";
 
+        /// <summary>
+        /// Retrieve all SVG data.
+        /// </summary>
+        /// <response code="200">List of SVG data</response>
         [HttpGet]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public ActionResult<List<SvgData>> GetAllSvgs()
         {
             var svgData = GetSvgDataFromFile();
             return Ok(svgData);
         }
 
+        /// <summary>
+        /// Store dimensions for a specific SVG version.
+        /// </summary>
+        /// <param name="request">Request containing dimensions and version information</param>
+        /// <response code="200">Successfully updated SVG data</response>
+        /// <response code="404">SVG or version not found</response>
         [HttpPost("store-dimensions")]
-        public ActionResult<SvgData> StoreDimensions([FromBody] StoreDimensionsRequest request)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public ActionResult<SvgData> StoreDimensions([FromBody] StoreDimensionsRequestDTO request)
         {
             var svgData = GetSvgDataFromFile();
             var svg = svgData.FirstOrDefault(x => x.ListId == request.ListId);
             if (svg == null)
                 return NotFound();
 
-            // Find the specified version to update
             var versionToUpdate = svg.Versions.FirstOrDefault(v => v.Id == request.VersionId);
             if (versionToUpdate == null)
                 return NotFound();
 
-            // Update the dimensions
             versionToUpdate.Width = request.Width;
             versionToUpdate.Height = request.Height;
 
-            // Move the updated version to the front of the array
             svg.Versions.Remove(versionToUpdate);
             svg.Versions.Insert(0, versionToUpdate);
 
-            // Save the updated svg data back to the file
             SaveSvgDataToFile(svgData);
 
             return Ok(svg);
         }
 
-        // Request model for storing dimensions
-        public class StoreDimensionsRequest
-        {
-            public int ListId { get; set; }
-            public double VersionId { get; set; } // Using double to match the Version Id type
-            public int Width { get; set; }
-            public int Height { get; set; }
-        }
-
+        /// <summary>
+        /// Retrieve a specific SVG by its list ID.
+        /// </summary>
+        /// <param name="listId">The ID of the SVG list to retrieve</param>
+        /// <response code="200">SVG data for the specified ID</response>
+        /// <response code="404">SVG not found</response>
         [HttpGet("{listId}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public ActionResult<SvgData> GetSvg(int listId)
         {
             var svgData = GetSvgDataFromFile();
@@ -67,35 +76,37 @@ namespace ImageAPI.Controllers
 
             return Ok(svg);
         }
+
+        /// <summary>
+        /// Handle version actions for a specific SVG.
+        /// </summary>
+        /// <param name="request">Request containing version action information</param>
+        /// <response code="200">Successfully retrieved SVG version data</response>
+        /// <response code="404">SVG not found</response>
+        /// <response code="400">Invalid action provided</response>
         [HttpPost("version")]
-        public ActionResult<SvgData> HandleVersion([FromBody] VersionActionRequest request)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public ActionResult<SvgData> HandleVersion([FromBody] VersionActionRequestDTO request)
         {
             var svgData = GetSvgDataFromFile();
             var svg = svgData.FirstOrDefault(x => x.ListId == request.ListId);
             if (svg == null)
                 return NotFound();
-
-            if (request.Action == "toggle")
+            if (request.Action == "newest")
             {
-                // Increment the index and wrap around
-                // (This logic should be handled on the frontend)
-            }
-            else if (request.Action == "newest")
-            {
-                // Return the first version without modifying any ids or positions
-                var firstVersion = svg.Versions.FirstOrDefault(); // Get the first version
+                var firstVersion = svg.Versions.FirstOrDefault();
                 return Ok(new SvgData
                 {
                     ListId = svg.ListId,
-                    Versions = new List<Version> { firstVersion } // Return only the first version
+                    Versions = new List<Version> { firstVersion }
                 });
             }
             else
             {
                 return BadRequest("Invalid action");
             }
-            return Ok();
-            // Save the updated svg data back to the file if necessary (not needed for 'newest' action)
         }
 
         private List<SvgData> GetSvgDataFromFile()
@@ -105,11 +116,6 @@ namespace ImageAPI.Controllers
             return data.SvgDimensions;
         }
 
-        //private void SaveSvgDataToFile(List<SvgData> svgData)
-        //{
-        //    var json = JsonConvert.SerializeObject(new SvgRoot { SvgDimensions = svgData }, Formatting.Indented);
-        //    System.IO.File.WriteAllText(JsonFilePath, json);
-        //}
         private void SaveSvgDataToFile(List<SvgData> svgData)
         {
             try
@@ -120,35 +126,8 @@ namespace ImageAPI.Controllers
             }
             catch (Exception ex)
             {
-                // Log the exception or handle it as necessary
                 Console.WriteLine($"Error saving SVG data: {ex.Message}");
             }
         }
-    }
-
-    public class SvgRoot
-    {
-        public List<SvgData> SvgDimensions { get; set; }
-    }
-
-    public class SvgData
-    {
-        public int ListId { get; set; }
-        public List<Version> Versions { get; set; }
-    }
-
-    public class Version
-    {
-        public double Id { get; set; } // Support decimal ids
-        public int Width { get; set; }
-        public int Height { get; set; }
-        public int X { get; set; }
-        public int Y { get; set; }
-    }
-
-    public class VersionActionRequest
-    {
-        public int ListId { get; set; }
-        public string Action { get; set; }
     }
 }
